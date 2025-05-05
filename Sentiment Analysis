@@ -1,0 +1,118 @@
+# ================================================
+# 1. IMPORTING REQUIRED LIBRARIES
+# ================================================
+
+import nltk                                  # NLP toolkit
+import pandas as pd                          # Data manipulation
+import numpy as np                           # Numerical operations
+import matplotlib.pyplot as plt              # Plotting
+import seaborn as sns                        # Visualization
+
+import string                                # String operations (e.g., punctuation)
+import re                                    # Regular expressions
+
+from nltk.corpus import movie_reviews, stopwords
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+# Download necessary NLTK resources
+nltk.download('movie_reviews')
+nltk.download('stopwords')
+
+# ================================================
+# 2. LOAD THE IMDb MOVIE REVIEWS DATASET
+# ================================================
+
+# Load the movie reviews and corresponding labels
+docs = [
+    (movie_reviews.raw(fileid), category)
+    for category in movie_reviews.categories()
+    for fileid in movie_reviews.fileids(category)
+]
+
+# Convert to DataFrame
+df = pd.DataFrame(docs, columns=['review', 'sentiment'])
+
+# Map sentiment to numeric: 'pos' → 1, 'neg' → 0
+df['sentiment'] = df['sentiment'].map({'pos': 1, 'neg': 0})
+
+# Preview the dataset
+print(df.head())
+
+# ================================================
+# 3. TEXT PREPROCESSING
+# ================================================
+
+# Define stopwords
+stop_words = set(stopwords.words('english'))
+
+# Function to clean the review text
+def clean_text(text):
+    text = text.lower()  # Lowercase
+    text = re.sub(r'\d+', '', text)  # Remove digits
+    text = text.translate(str.maketrans('', '', string.punctuation))  # Remove punctuation
+    words = text.split()  # Tokenize
+    words = [word for word in words if word not in stop_words]  # Remove stopwords
+    return ' '.join(words)
+
+# Apply cleaning function
+df['cleaned_review'] = df['review'].apply(clean_text)
+
+# Show example cleaned reviews
+print(df[['review', 'cleaned_review']].head())
+
+# ================================================
+# 4. SPLIT THE DATA INTO TRAINING AND TEST SETS
+# ================================================
+
+X = df['cleaned_review']  # Features
+y = df['sentiment']       # Labels
+
+# 80% training, 20% testing
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42)
+
+# ================================================
+# 5. TF-IDF VECTORIZATION
+# ================================================
+
+# Initialize vectorizer (limit vocabulary for efficiency)
+tfidf = TfidfVectorizer(max_features=5000)
+
+# Transform reviews into TF-IDF features
+X_train_tfidf = tfidf.fit_transform(X_train)
+X_test_tfidf = tfidf.transform(X_test)
+
+# ================================================
+# 6. TRAINING THE LOGISTIC REGRESSION MODEL
+# ================================================
+
+model = LogisticRegression()
+model.fit(X_train_tfidf, y_train)
+
+# ================================================
+# 7. EVALUATION OF MODEL PERFORMANCE
+# ================================================
+
+# Predict on test data
+y_pred = model.predict(X_test_tfidf)
+
+# Accuracy
+print("Accuracy Score:", accuracy_score(y_test, y_pred))
+
+# Classification metrics
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+# Confusion matrix
+cm = confusion_matrix(y_test, y_pred)
+
+# Plot confusion matrix
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+            xticklabels=['Negative', 'Positive'],
+            yticklabels=['Negative', 'Positive'])
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix')
+plt.show()
