@@ -1,0 +1,104 @@
+# ================================================
+# 1. IMPORTING REQUIRED LIBRARIES
+# ================================================
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+
+# ================================================
+# 2. LOADING THE DATASET
+# ================================================
+
+iris = load_iris()
+X = iris.data
+y = iris.target
+
+df = pd.DataFrame(X, columns=iris.feature_names)
+df['target'] = y
+
+# Display first few rows
+print("First 5 rows of dataset:")
+print(df.head())
+
+# ================================================
+# 3. SPLITTING THE DATA INTO TRAIN AND TEST SETS
+# ================================================
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# ================================================
+# 4. INITIAL MODEL TRAINING AND CROSS-VALIDATION
+# ================================================
+
+# Initialize base model
+base_model = DecisionTreeClassifier(random_state=42)
+
+# Cross-validation to estimate performance
+cv_scores = cross_val_score(base_model, X, y, cv=5)
+print("\nCross-Validation Scores:", cv_scores)
+print("Average CV Score:", np.mean(cv_scores))
+
+# ================================================
+# 5. HYPERPARAMETER TUNING WITH GRIDSEARCHCV
+# ================================================
+
+param_grid = {
+    'max_depth': [2, 3, 4, 5],
+    'min_samples_split': [2, 4, 6],
+    'criterion': ['gini', 'entropy']
+}
+
+grid_search = GridSearchCV(DecisionTreeClassifier(random_state=42), param_grid, cv=5)
+grid_search.fit(X_train, y_train)
+
+# Best model and parameters
+print("\nBest Parameters from GridSearchCV:")
+print(grid_search.best_params_)
+
+# Use the best estimator for prediction
+model = grid_search.best_estimator_
+
+# ================================================
+# 6. MAKING PREDICTIONS AND EVALUATING THE MODEL
+# ================================================
+
+y_pred = model.predict(X_test)
+
+print("\nAccuracy Score:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+# ================================================
+# 7. VISUALIZING THE DECISION TREE
+# ================================================
+
+plt.figure(figsize=(15, 10))
+plot_tree(
+    model,
+    feature_names=iris.feature_names,
+    class_names=iris.target_names,
+    filled=True
+)
+plt.title("Optimized Decision Tree Visualization - Iris Dataset")
+plt.show()
+
+# ================================================
+# 8. PLOTTING FEATURE IMPORTANCES
+# ================================================
+
+importances = model.feature_importances_
+plt.figure(figsize=(8, 5))
+plt.barh(iris.feature_names, importances, color='skyblue')
+plt.xlabel("Feature Importance Score")
+plt.title("Feature Importance in Decision Tree")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
