@@ -1,0 +1,90 @@
+# ================================================
+# 1. INSTALL REQUIRED LIBRARIES
+# ================================================
+
+!pip install lightfm
+
+# ================================================
+# 2. IMPORT LIBRARIES
+# ================================================
+
+import numpy as np
+import pandas as pd
+from lightfm import LightFM
+from lightfm.data import Dataset
+from lightfm.evaluation import precision_at_k
+
+# ================================================
+# 3. LOAD MOVIELENS DATA
+# ================================================
+
+# Use built-in dataset from GitHub (100k ratings)
+ratings = pd.read_csv('https://raw.githubusercontent.com/zygmuntz/goodbooks-10k/master/ratings.csv')
+
+# Show first few rows
+ratings.head()
+
+# ================================================
+# 4. PREPARE DATA FOR LIGHTFM
+# ================================================
+
+# Create LightFM dataset
+dataset = Dataset()
+dataset.fit(
+    users=ratings['user_id'].unique(),
+    items=ratings['book_id'].unique()
+)
+
+# Build interaction matrix
+(interactions, weights) = dataset.build_interactions([
+    (row['user_id'], row['book_id'], row['rating']) for index, row in ratings.iterrows()
+])
+
+# ================================================
+# 5. BUILD AND TRAIN MATRIX FACTORIZATION MODEL
+# ================================================
+
+# Initialize LightFM model (using collaborative filtering)
+model = LightFM(loss='warp')  # WARP = Weighted Approximate-Rank Pairwise
+
+# Train the model
+model.fit(interactions, epochs=10, num_threads=2)
+
+# ================================================
+# 6. EVALUATE MODEL PERFORMANCE
+# ================================================
+
+# Evaluate using precision@k
+precision = precision_at_k(model, interactions, k=5).mean()
+print(f"\nPrecision@5: {precision:.4f}")
+
+# ================================================
+# 7. RECOMMENDATION FUNCTION
+# ================================================
+
+# Get user and item mappings
+user_ids, user_id_map, _ = dataset.mapping()[0].keys(), dataset.mapping()[0], dataset.mapping()[1]
+item_ids, item_id_map = dataset.mapping()[2].keys(), dataset.mapping()[2]
+
+def recommend_books(user_id, num_recs=5):
+    n_users, n_items = interactions.shape
+
+    user_x = user_id_map[user_id]
+
+    # Predict scores for all items for this user
+    scores = model.predict(user_ids=user_x, item_ids=np.arange(n_items))
+
+    # Get top scores
+    top_items = np.argsort(-scores)[:num_recs]
+
+    print(f"\nTop {num_recs} book recommendations for user {user_id}:\n")
+    for item_id in top_items:
+        for key, val in item_id_map.items():
+            if val == item_id:
+                print(f"Book ID: {key}")
+
+# ================================================
+# 8. SAMPLE RECOMMENDATIONS
+# ================================================
+
+recommend_books(user_id=1, num_recs=5)
