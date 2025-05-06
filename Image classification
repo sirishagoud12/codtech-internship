@@ -1,0 +1,101 @@
+# ================================================
+# 1. IMPORT LIBRARIES
+# ================================================
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import layers, models
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+
+# ================================================
+# 2. LOAD AND PREPROCESS THE DATASET
+# ================================================
+
+# Load CIFAR-10 dataset (already split into train/test)
+(X_train, y_train), (X_test, y_test) = cifar10.load_data()
+
+# Normalize pixel values to range 0–1
+X_train = X_train.astype('float32') / 255.0
+X_test  = X_test.astype('float32') / 255.0
+
+# Convert class vectors (integers) to one-hot encoding
+y_train = to_categorical(y_train, 10)
+y_test  = to_categorical(y_test, 10)
+
+# ================================================
+# 3. DEFINE CNN MODEL ARCHITECTURE
+# ================================================
+
+model = models.Sequential()
+
+# First convolutional block
+model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
+model.add(layers.MaxPooling2D((2, 2)))
+
+# Second convolutional block
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+model.add(layers.MaxPooling2D((2, 2)))
+
+# Third convolutional block
+model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+
+# Flatten and Dense layers
+model.add(layers.Flatten())
+model.add(layers.Dense(64, activation='relu'))
+model.add(layers.Dense(10, activation='softmax'))  # Output layer for 10 classes
+
+# Show model summary
+model.summary()
+
+# ================================================
+# 4. COMPILE THE MODEL
+# ================================================
+
+model.compile(optimizer='adam',
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+
+# ================================================
+# 5. TRAIN THE MODEL
+# ================================================
+
+history = model.fit(X_train, y_train,
+                    epochs=10,
+                    batch_size=64,
+                    validation_split=0.2)
+
+# ================================================
+# 6. EVALUATE MODEL ON TEST DATA
+# ================================================
+
+test_loss, test_accuracy = model.evaluate(X_test, y_test, verbose=2)
+print(f"\nTest accuracy: {test_accuracy:.4f}")
+
+# ================================================
+# 7. PLOT ACCURACY AND LOSS
+# ================================================
+
+plt.figure(figsize=(12, 5))
+
+# Plot training & validation accuracy
+plt.subplot(1, 2, 1)
+plt.plot(history.history['accuracy'], label='Train')
+plt.plot(history.history['val_accuracy'], label='Validation')
+plt.title('Model Accuracy')
+plt.xlabel('Epoch')
+plt.ylabel('Accuracy')
+plt.legend()
+
+# Plot training & validation loss
+plt.subplot(1, 2, 2)
+plt.plot(history.history['loss'], label='Train')
+plt.plot(history.history['val_loss'], label='Validation')
+plt.title('Model Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
